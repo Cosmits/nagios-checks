@@ -57,31 +57,56 @@ goto end
 
 :subroutine
 ::ECHO qwe %1
-if %1 == Администратор (
- SET USER=%USER% Admin
- ) ELSE (
+set word=%1
+
+set word=%word:а=a%
+SET word=%word:б=b%
+SET word=%word:в=v%
+SET word=%word:г=g%
+SET word=%word:д=d%
+SET word=%word:е=e%
+SET word=%word:ё=jo%
+SET word=%word:ж=zh%
+SET word=%word:з=z%
+SET word=%word:и=i%
+SET word=%word:?=i%
+SET word=%word:ї=ji%
+SET word=%word:й=j%
+SET word=%word:к=k%
+SET word=%word:л=l%
+SET word=%word:м=m%
+SET word=%word:н=n%
+SET word=%word:о=o%
+SET word=%word:п=p%
+SET word=%word:р=r%
+SET word=%word:с=s%
+SET word=%word:т=t%
+SET word=%word:у=u%
+SET word=%word:ф=f%
+SET word=%word:х=h%
+SET word=%word:ц=ts%
+SET word=%word:ч=ch%
+SET word=%word:ш=sh%
+SET word=%word:щ=sch%
+SET word=%word:ъ="%
+SET word=%word:ы=y%
+SET word=%word:ь=`%
+SET word=%word:э=e%
+SET word=%word:ю=ju%
+SET word=%word:я=ja%
+
+::echo qwe %word% 222
+
  
- if %1 == 1 (
-  SET USER=%USER%
-  ) ELSE (
+::SET USER=%USER% %word%
  
-  SET USER=%USER% %1
-  )
- )
- 
-if %1 == 1 set res=true
-if %1 == 2 set res=true
-if %1 == 3 set res=true
-if %1 == 4 set res=true
-if %1 == 5 set res=true
-if %1 == 6 set res=true
-if %1 == 7 set res=true
-if %1 == 8 set res=true
-if %1 == 9 set res=true
+if %1 GEQ 1 if %1 LEQ 20 set res=true
 if defined res ( 
     SET CORR=1
+	SET USER=%USER%
 ) else (
     SET CORR=0
+	SET USER=%USER% %word%
 )
 
  
