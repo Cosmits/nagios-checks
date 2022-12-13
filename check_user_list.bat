@@ -36,7 +36,6 @@ FOR /f "TOKENS=2" %%G IN ('query session ^|find "console"') DO (
 call :subroutine %%G
 )
 
-
 REM - CRITICAL (COUNT => $2)
 ::if %COUNT% GEQ %2 ( set EX=2 && set MS=CRITICAL && goto end )
 
@@ -45,9 +44,6 @@ if %COUNT% EQU 0 ( set EX=0 && set MS=OK && goto end )
 
 REM - WARNING (COUNT => $1)
 if %COUNT% GEQ %1 ( set EX=1 && set MS=WARNING && goto end )
-
-
-
 
 REM - NOT CRITICAL / WARNING
 set EX=0
@@ -96,7 +92,6 @@ SET word=%word:î=ju%
 SET word=%word:ï=ja%
 
 ::echo qwe %word% 222
-
  
 ::SET USER=%USER% %word%
  
@@ -108,11 +103,9 @@ if defined res (
     SET CORR=0
 	SET USER=%USER% %word%
 )
-
  
 set /a COUNT=%COUNT%-%CORR%
 GOTO :eof
-
 
 :end
 ::ECHO %MS% - Number of active sessions = %COUNT% ^| Logged Users = !USER!
