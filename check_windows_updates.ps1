@@ -1,10 +1,12 @@
-#################################################################################
+﻿#################################################################################
+#
 # NAME: 	check_windows_updates.ps1
-# TESTED: powershell 2 & 4
+#
 #
 # I forked this script at version 1.42 from:
 # ORIGINAL SCRIPT: https://exchange.nagios.org/directory/Plugins/Operating-Systems/Windows-NRPE/Check-Windows-Updates-using-Powershell/details
 # ORIGINAL AUTHOR: Christian Kaufmann, ck@tupel7.de
+#
 #
 # COMMENT:  Script to check for windows updates with Nagios + NRPE/NSClient++
 #
@@ -23,7 +25,7 @@
 #			Only Hidden Updates - OK (0)
 #			Updates already installed, reboot required - WARNING (1)
 #			Optional updates available - WARNING (1)
-#			Critial updates available - CRITICAL (2)
+#			Critical updates available - CRITICAL (2)
 #			Script errors - UNKNOWN (3)
 #
 #			NRPE Handler to use with NSClient++:
@@ -31,17 +33,44 @@
 #			check_updates=cmd /c echo scripts\check_windows_updates.ps1 $ARG1$ $ARG2$; exit $LastExitCode | powershell.exe -command - 
 #
 #
+# IMPORTANT: 	Please make absolutely sure that your Powershell ExecutionPolicy is set to Remotesigned.
+#				Also note that there are two versions of powershell on a 64bit OS! Depending on the architecture 
+#				of your NSClient++ version you have to choose the right one:
+#
+#				64bit NSClient++ (installed under C:\Program Files ):
+#				%SystemRoot%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe "Set-ExecutionPolicy RemoteSigned"
+#
+#				32bit NSClient++ (installed under C:\Program Files (x86) ):
+#				%SystemRoot%\syswow64\WindowsPowerShell\v1.0\powershell.exe "Set-ExecutionPolicy RemoteSigned"
+#
+#
 # CHANGELOG:
-# 1.43 2015-11-29 - Corregí 2 bugs:  $critialTitles = ""; -->  $criticalTitles = ""; /  $criticalTitles += $update.Title + " " -->  $criticalTitles += $update.Title + " `n"
+# 1.46 2022-09-12 - added Windows Defender critical update and disable LOG-file
+# 1.45 2016-08-05 - corrected some typos, added newline after each critical update
+# 1.44 2016-04-05 - performance data added
 # 1.42 2015-07-20 - strip unwanted characters from returnString
 # 1.41 2015-04-24 - removed wuauclt /detectnow if updates available
 # 1.4  2015-01-14 - configurable return state for pending reboot
 # 1.3  2013-01-04 - configurable return state for optional updates
 # 1.2  2011-08-11 - cache updates, periodically update cache file
 # 1.1  2011-05-11 - hidden updates only -> state OK
-#				 - call wuauctl.exe to show available updates to user
+#				  - call wuauctl.exe to show available updates to user
 # 1.0  2011-05-10 - initial version
 #
+#################################################################################
+# Copyright (C) 2011-2015 Christian Kaufmann, ck@tupel7.de
+#
+# This program is free software; you can redistribute it and/or modify it under 
+# the terms of the GNU General Public License as published by the Free Software 
+# Foundation; either version 3 of the License, or (at your option) any later 
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT 
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with 
+# this program; if not, see <http://www.gnu.org/licenses>.
 #################################################################################
 
 $htReplace = New-Object hashtable
@@ -59,15 +88,18 @@ $returnStatePendingReboot = $returnStateWarning
 $returnStateOptionalUpdates = $returnStateWarning
 
 $updateCacheFile = "check_windows_updates-cache.xml"
-$updateCacheExpireHours = "24"
+$updateCacheExpireHours = "4"
 
 $logFile = "check_windows_update.log"
 
 function LogLine(	[String]$logFile = $(Throw 'LogLine:$logFile unspecified'), 
 					[String]$row = $(Throw 'LogLine:$row unspecified')) {
 	$logDateTime = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-	Add-Content -Encoding UTF8 $logFile ($logDateTime + " - " + $row) 
+# disable log file	-=Cos=-
+#	Add-Content -Encoding UTF8 $logFile ($logDateTime + " - " + $row) 
 }
+# add update signature Windows Defender	-=Cos=-
+& 'C:\Program Files\Windows Defender\MpCmdRun.exe' '-SignatureUpdate' >> null
 
 if (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired"){ 
 	Write-Host "updates installed, reboot required"
@@ -97,15 +129,15 @@ if ((Get-Date) -gt ((Get-Item $updateCacheFile).LastWriteTime.AddHours($updateCa
 	$updates = Import-Clixml $updateCacheFile
 }
 
-if ($updates.Count -eq 0) {
-	Write-Host "OK - no pending updates."
-	exit $returnStateOK
-}
-
 $criticalTitles = "";
 $countCritical = 0;
 $countOptional = 0;
 $countHidden = 0;
+
+if ($updates.Count -eq 0) {
+	Write-Host "OK - no pending updates.|critical=$countCritical;optional=$countOptional;hidden=$countHidden"
+	exit $returnStateOK
+}
 
 foreach ($update in $updates) {
 	if ($update.IsHidden) {
@@ -118,15 +150,19 @@ foreach ($update in $updates) {
 		$countOptional++
 	}
 }
-
 if (($countCritical + $countOptional) -gt 0) {
 	$returnString = "Updates: $countCritical critical, $countOptional optional" + [Environment]::NewLine + "$criticalTitles"
 	$returnString = [regex]::Replace($returnString, $pattern, { $htReplace[$args[0].value] })
-	if ($returnString.length -gt 1024) {
-        Write-Host ($returnString.SubString(0,1023))
-    } else {
-        Write-Host $returnString   
-    }   
+	
+	# 1024 chars max, reserving 48 chars for performance data ->
+	if ($returnString.length -gt 976) {
+		$estado=$countCritical+$countOptional+$countHidden
+		Write-Host ($returnString.SubString(0,975) + "|critical=$countCritical optional=$countOptional hidden=$countHidden state=$estado")
+	} else {
+		$estado=$countCritical+$countOptional+$countHidden
+		Write-Host ($returnString + "|critical=$countCritical optional=$countOptional hidden=$countHidden state=$estado ")
+	}
+	
 }
 
 #if ($countCritical -gt 0 -or $countOptional -gt 0) {
@@ -142,9 +178,9 @@ if ($countOptional -gt 0) {
 }
 
 if ($countHidden -gt 0) {
-	Write-Host "OK - $countHidden hidden updates."
+	Write-Host "OK - $countHidden hidden updates.|critical=$countCritical;optional=$countOptional;hidden=$countHidden"
 	exit $returnStateOK
 }
 
-Write-Host "UNKNOWN script state."
+Write-Host "UNKNOWN script state"
 exit $returnStateUnknown
