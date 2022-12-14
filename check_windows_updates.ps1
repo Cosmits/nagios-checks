@@ -99,7 +99,7 @@ function LogLine(	[String]$logFile = $(Throw 'LogLine:$logFile unspecified'),
 #	Add-Content -Encoding UTF8 $logFile ($logDateTime + " - " + $row) 
 }
 # add update signature Windows Defender	-=Cos=-
-& 'C:\Program Files\Windows Defender\MpCmdRun.exe' '-SignatureUpdate' >> null
+& 'C:\Program Files\Windows Defender\MpCmdRun.exe' '-SignatureUpdate' >> $null
 
 if (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired"){ 
 	Write-Host "updates installed, reboot required"
